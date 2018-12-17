@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<style>
+canvas {
+    border:1px solid #d3d3d3;
+    background-color: #f1f1f1;
+}
+button > span {
+    font-size:15px;
+}
+</style>
+</head>
+<body onload="startGame()">
+
+<div id="myfilter" style="position:absolute;background-color:#000000;opacity:0.3;width:480px;height:270px;display:none"></div>
+<div id="myrestartbutton" style="position:absolute;top:135px;left:210px;display:none;"><button onclick="restartGame()"><span>Restart</span></button></div>
+<div id="canvascontainer"></div>
+
+<div style="text-align:center;width:480px;">
+  <button style="position:absolute; left: 7px" onclick="gameload()" ><span>gameload</span></button>
+  <button style="position:absolute; left: 405px" onclick="gamesave()" ><span>gamesave</span></button>
+</div>
+
+<!--<p>The score will count one point for each frame you manage to "stay alive".</p> -->
+
+<script src="//code.jquery.com/jquery.min.js"></script>
+<script>
+
+var myGameArea;
+var myGamePiece;
+var myObstacles; // 장애물
+var myScore;
+
+function restartGame() {
+    document.getElementById("myfilter").style.display = "none";
+    document.getElementById("myrestartbutton").style.display = "none";
+    myGameArea.stop();
+    myGameArea.clear();
+    myGameArea = {};
+    myGamePiece = {};
+    myObstacles = [];
+    myscore = {};
+    document.getElementById("canvascontainer").innerHTML = "";
+    startGame();
+}
+
+function startGame(frameNo, myGamePieceX, myGamePieceY, myObstaclesHeight, myObstaclesX, myObstaclesY) {
+    if(arguments.length != 0) {
+        myGameArea.stop();
+        myGameArea.clear();
+        document.getElementById("canvascontainer").innerHTML = "";
+    }
+    myGameArea = {};
+    myGamePiece = {};
+    myObstacles = [];
+    myscore = {}; 
+
+    if(arguments.length == 0) {
+        myGameArea = new gamearea();
+        myGamePiece = new component(30, 30, "red", 10, 120);
+    } else {
+        myGameArea = new gamearea(parseInt(frameNo));
+        myGamePiece = new component(30, 30, "red", parseInt(myGamePieceX), parseInt(myGamePieceY));
+        for(i=0; i<myObstaclesHeight.length; i++) {
+            myObstacles.push(new component(10, parseInt(myObstaclesHeight[i]), "green", parseInt(myObstaclesX[i]), parseInt(myObstaclesY[i])));
+        }
+    }
+    myScore = new component("30px", "Consolas", "black", 280, 40, "text");
+    myGameArea.start();
+    alert('게임 시작');
+}
+
+function gamearea(frameNo) {
+    this.canvas = document.createElement("canvas");
+    this.canvas.width = 480;
+    this.canvas.height = 270;    
+    document.getElementById("canvascontainer").appendChild(this.canvas);
+    this.context = this.canvas.getContext("2d");
+    this.pause = false;
+    if(typeof frameNo=='undefined')
+        this.frameNo = 0;
+    else
+        this.frameNo = frameNo;
+    this.start = function() {
+        this.interval = setInterval(updateGameArea, 20);
+    }
+    this.stop = function() {
+        clearInterval(this.interval);
+        this.pause = true;
+    }
+    this.clear = function(){ // canvas 안에 있는 것들 다 지움
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+}
+
+function component(width, height, color, x, y, type) {
+    this.type = type;
+    this.width = width;
+    this.height = height;
+    this.speedX = 0;
+    this.speedY = 0;    
+    this.x = x;
+    this.y = y;    
+    this.update = function() {
+        ctx = myGameArea.context;
+        if (this.type == "text") {
+            ctx.font = this.width + " " + this.height;
+            ctx.fillStyle = color;
+            ctx.fillText(this.text, this.x, this.y);
+        } else {
+            ctx.fillStyle = color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    }
+    this.newPos = function() {
+        this.x += this.speedX;
+        this.y += this.speedY;        
+    }
+    this.crashWith = function(otherobj) {
+        var myleft = this.x;
+        var myright = this.x + (this.width);
+        var mytop = this.y;
+        var mybottom = this.y + (this.height);
+        var otherleft = otherobj.x;
+        var otherright = otherobj.x + (otherobj.width);
+        var othertop = otherobj.y;
+        var otherbottom = otherobj.y + (otherobj.height);
+        var crash = true;
+        if ((mybottom < othertop) || (mytop > otherbottom) || (myright < otherleft) || (myleft > otherright)) {
+            crash = false;
+        }
+        return crash;
+    }
+}
+
+function updateGameArea() {
+    var x, height, gap, minHeight, maxHeight, minGap, maxGap;
+    for (i = 0; i < myObstacles.length; i += 1) {
+        if (myGamePiece.crashWith(myObstacles[i])) { //장애물과 충돌하면 Game Over
+            myGameArea.stop();
+            document.getElementById("myfilter").style.display = "block";
+            document.getElementById("myrestartbutton").style.display = "block";
+            return;
+        } 
+    }
+    myGameArea.clear();
+    myGameArea.frameNo += 1;
+    if (myGameArea.frameNo == 1 || everyinterval(150)) { 
+        x = myGameArea.canvas.width;
+        minHeight = 20;
+        maxHeight = 200;
+        height = Math.floor(Math.random()*(maxHeight-minHeight+1)+minHeight);
+        minGap = 50;
+        maxGap = 200;
+        gap = Math.floor(Math.random()*(maxGap-minGap+1)+minGap);
+        myObstacles.push(new component(10, height, "green", x, 0));
+        myObstacles.push(new component(10, x - height - gap, "green", x, height + gap));
+    }
+    for (i = 0; i < myObstacles.length; i += 1) {
+        myObstacles[i].speedX = -1;
+        myObstacles[i].newPos();
+        myObstacles[i].update();
+    }
+    myScore.text="SCORE: " + myGameArea.frameNo;
+    myScore.update();
+    myGamePiece.newPos();    
+    myGamePiece.update();
+}
+
+function everyinterval(n) {
+    if ((myGameArea.frameNo / n) % 1 == 0) {return true;}
+    return false;
+}
+
+function move(event) {
+    var key = event.keyCode;
+    if (key == 38)
+        myGamePiece.speedY = -1;
+    else if (key == 40)
+        myGamePiece.speedY = 1;
+    else if (key == 37)
+        myGamePiece.speedX = -1;
+    else if(key == 39)
+        myGamePiece.speedX = 1;
+}
+
+function clearmove() {
+    myGamePiece.speedX = 0; 
+    myGamePiece.speedY = 0; 
+}
+
+function gamesave() {
+    var saveId = prompt("저장할 아이디를 입력하세요.");
+    if(saveId != null) {
+        var myObstaclesHeight = [];
+        var myObstaclesX = [];
+        var myObstaclesY = [];
+
+        for (i = 0; i < myObstacles.length; i += 1) {
+            myObstaclesHeight.push(myObstacles[i].height);
+            myObstaclesX.push(myObstacles[i].x);
+            myObstaclesY.push(myObstacles[i].y);
+        }
+        
+        var jsonData = {
+            'saveId':saveId,
+            'frameNo':myGameArea.frameNo,
+            'myGamePieceX':myGamePiece.x,
+            'myGamePieceY':myGamePiece.y,
+            'myObstaclesHeight':myObstaclesHeight,
+            'myObstaclesX':myObstaclesX,
+            'myObstaclesY':myObstaclesY,
+        };
+
+        $.ajaxSettings.traditional = true; // ajax 배열 처리를 위해
+
+        $.ajax({
+            type:'post',
+            dataType:'json',
+            data:jsonData,
+            url:'./gamesave',
+            success : function(responseData) {
+                if(responseData == 1) 
+                    alert(saveId + '를 저장했습니다.');
+            },
+            error : function(error) {
+
+            }
+        });
+    } else {
+
+    }            
+}
+
+function gameload() {
+    var loadId = prompt("불러올 아이디를 입력하세요.");
+    if(loadId != null) {
+        $.ajax({
+            type:'get',
+            dataType:'json',
+            data: { 'loadId' : loadId },
+            url:'./gameload',
+            success : function(responseData) {
+                console.log(responseData);
+                if(typeof responseData == 'number') {
+                    alert('불러올 아이디가 존재하지 않습니다.');
+                } else {
+                    alert(loadId + '를 불러왔습니다.');
+                    startGame(responseData.frameNo, responseData.myGamePieceX, responseData.myGamePieceY, responseData.myObstaclesHeight, responseData.myObstaclesX, responseData.myObstaclesY);
+                }
+            },
+            error : function(error) {
+
+            }
+        });
+        document.getElementById("myfilter").style.display = "none";
+        document.getElementById("myrestartbutton").style.display = "none";
+    } else {
+        
+    }
+}
+document.addEventListener("keydown", move);
+document.addEventListener("keyup", clearmove);
+
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
